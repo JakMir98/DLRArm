@@ -3,6 +3,7 @@ import cv2
 import sys
 import auto_window
 import manual_window
+import serial
 
 
 class Controller:
@@ -22,6 +23,7 @@ class Controller:
 
 
 def main():
+    arduino = serial.Serial("COM8", 9600)
     app = QtWidgets.QApplication(sys.argv)
     controller = Controller()
     controller.show_manual()

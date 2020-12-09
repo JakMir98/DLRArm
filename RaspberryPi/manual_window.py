@@ -1,5 +1,7 @@
-from PyQt5.QtCore import pyqtSignal, Qt
+from PyQt5.QtCore import pyqtSignal, Qt, QTimer
 from PyQt5.QtWidgets import QWidget, QLabel, QLineEdit, QPushButton, QSlider
+import numpy as np
+import serial
 
 
 class ManualWindow(QWidget):
@@ -14,6 +16,7 @@ class ManualWindow(QWidget):
         self.width = 800
         self.height = 410
         self.angle = [90, 90, 90, 90, 90, 90]
+        self.arduino = serial.Serial("COM6", 9600)
         self.init_ui()
 
     def init_ui(self):
@@ -38,7 +41,7 @@ class ManualWindow(QWidget):
         self.settings_btn = QPushButton('ustawienia', self)
         self.settings_btn.setToolTip('Zmień ustawienia programu.')
         self.settings_btn.setGeometry(595, 305, 200, 100)
-        self.settings_btn.clicked.connect(self.switch)
+        self.settings_btn.clicked.connect(self.serial_write)
 
         self.slider_pwm1 = QSlider(Qt.Vertical, self)
         self.slider_pwm1.setGeometry(30, 50, 50, 300)
@@ -118,45 +121,43 @@ class ManualWindow(QWidget):
         self.label_pwm6.setText('servo 6')
         self.label_pwm6.setGeometry(480, 15, 50, 20)
 
+        self.timer = QTimer()
+        self.timer.setInterval(1000)
+        self.timer.timeout.connect(self.serial_write)
+        self.timer.start()
+
     def pwm1(self, value):
         self.text_pwm1.setText(str(value))
         self.angle[0] = value
-        self.serial_write()
 
     def pwm2(self, value):
         self.text_pwm2.setText(str(value))
         self.angle[1] = value
-        self.serial_write()
 
     def pwm3(self, value):
         self.text_pwm3.setText(str(value))
         self.angle[2] = value
-        self.serial_write()
 
     def pwm4(self, value):
         self.text_pwm4.setText(str(value))
         self.angle[3] = value
-        self.serial_write()
 
     def pwm5(self, value):
         self.text_pwm5.setText(str(value))
         self.angle[4] = value
-        self.serial_write()
 
     def pwm6(self, value):
         self.text_pwm6.setText(str(value))
         self.angle[5] = value
-        self.serial_write()
 
     def serial_write(self):
-        arduino.write(chr(200))
-        arduino.write(chr(self.angle[0]))
-        arduino.write(chr(self.angle[1]))
-        arduino.write(chr(self.angle[2]))
-        arduino.write(chr(self.angle[3]))
-        arduino.write(chr(self.angle[4]))
-        arduino.write(chr(self.angle[5]))
+        self.arduino.write([np.uint8(200), np.uint8(self.angle[0]), np.uint8(self.angle[1]), np.uint8(self.angle[2]),
+                                           np.uint8(self.angle[3]), np.uint8(self.angle[4]), np.uint8(self.angle[5])])
+        print([np.uint8(200), np.uint8(self.angle[0]), np.uint8(self.angle[1]), np.uint8(self.angle[2]),
+                                           np.uint8(self.angle[3]), np.uint8(self.angle[4]), np.uint8(self.angle[5])])
 
     def switch(self):
         self.switch_window.emit()
         self.close()
+
+

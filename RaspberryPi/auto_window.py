@@ -14,6 +14,7 @@ class AutoWindow(QWidget):
         self.width = 800
         self.height = 410
         self.angle = [90, 90, 90, 90, 90, 90]
+        self.arduino = serial.Serial("COM6", 9600)
         self.init_ui()
 
     def init_ui(self):
@@ -47,13 +48,8 @@ class AutoWindow(QWidget):
         self.label_logs.setGeometry(600, 0, 200, 410)
 
     def serial_write(self):
-        arduino.write(chr(200))
-        arduino.write(chr(self.angle[0]))
-        arduino.write(chr(self.angle[1]))
-        arduino.write(chr(self.angle[2]))
-        arduino.write(chr(self.angle[3]))
-        arduino.write(chr(self.angle[4]))
-        arduino.write(chr(self.angle[5]))
+        self.arduino.write([np.uint8(200), np.uint8(self.angle[0]), np.uint8(self.angle[1]), np.uint8(self.angle[2]),
+                                           np.uint8(self.angle[3]), np.uint8(self.angle[4]), np.uint8(self.angle[5])])
 
     def switch(self):
         self.switch_window.emit()

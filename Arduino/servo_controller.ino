@@ -1,19 +1,49 @@
 #include <Servo.h>
 #define SIZE 6
+#define WAIT_FOR_SERVO 50
 
-byte buff[SIZE];
+byte buff[SIZE] = {0x5A, 0x5A, 0x5A, 0x5A, 0x5A, 0x5A};
 Servo servo1;
-int angle1 = 90;
 Servo servo2;
-int angle2 = 90;
 Servo servo3;
-int angle3 = 90;
 Servo servo4;
-int angle4 = 90;
 Servo servo5;
-int angle5 = 90;
 Servo servo6;
-int angle6 = 90;
+
+
+void move(byte buff[SIZE]) {
+    int angle1 = buff[0];
+    int angle2 = buff[1];
+    int angle3 = buff[2];
+    int angle4 = buff[3];
+    int angle5 = buff[4];
+    int angle6 = buff[5];
+    
+    Serial.println(angle1);  // for debugging purposes
+    Serial.println(angle2);
+    Serial.println(angle3);
+    Serial.println(angle4);
+    Serial.println(angle5);
+    Serial.println(angle6);
+
+    servo1.write(angle1);
+    delay(WAIT_FOR_SERVO);
+    
+    servo2.write(angle2);
+    delay(WAIT_FOR_SERVO);
+    
+    servo3.write(angle3);
+    delay(WAIT_FOR_SERVO);
+    
+    servo4.write(angle4);
+    delay(WAIT_FOR_SERVO);
+    
+    servo5.write(angle5);
+    delay(WAIT_FOR_SERVO);
+    
+    servo6.write(angle6);
+    delay(WAIT_FOR_SERVO);
+}
 
 void setup() {
   Serial.begin(9600);
@@ -24,35 +54,18 @@ void setup() {
   servo4.attach(7);
   servo5.attach(8);
   servo6.attach(9);
+  
+  move(buff);                                   // move to the neutral position
 }
 
 void loop() {
   while (Serial.read() != 200){
-  }
+  }                                             // wait for indicator
   
-  delay(50);
-  if (Serial.readBytes(buff, SIZE) == SIZE) {
-    angle1 = buff[0];
-    angle2 = buff[1];
-    angle3 = buff[2];
-    angle4 = buff[3];
-    angle5 = buff[4];
-    angle6 = buff[5];
-    
-    //Serial.println(angle1);
-    //Serial.println(angle2);
-    //Serial.println(angle3);
-    //Serial.println(angle4);
-    //Serial.println(angle5);
-    //Serial.println(angle6);
-
-    servo1.write(angle1);
-    servo2.write(angle2);
-    servo3.write(angle3);
-    servo4.write(angle4);
-    servo5.write(angle5);
-    servo6.write(angle6);
-
-    delay(50);
-  }
+  //Serial.println(201); // for debugging purposes
+  delay(10);                                    // wait for serial buffer to fill up
+  
+  if (Serial.readBytes(buff, SIZE) == SIZE) {  
+    move(buff);
+  }                                             // move if successfully read SIZE positions
 }

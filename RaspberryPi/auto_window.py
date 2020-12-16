@@ -14,7 +14,8 @@ class AutoWindow(QWidget):
         self.width = 800
         self.height = 410
         self.angle = [90, 90, 90, 90, 90, 90]
-        self.arduino = serial.Serial("COM6", 9600)
+        self.arduino = serial.Serial("COM7", 9600)
+        self.auto_enable = False
         self.init_ui()
 
     def init_ui(self):
@@ -24,7 +25,7 @@ class AutoWindow(QWidget):
         self.start_btn = QPushButton('ułóż zdanie', self)
         self.start_btn.setToolTip('Rozpocznij układanie słowa.')
         self.start_btn.setGeometry(4, 305, 145, 100)
-        self.start_btn.clicked.connect(self.switch)
+        self.start_btn.clicked.connect(self.switch_auto)
 
         self.switch_btn = QPushButton('tryb manualny', self)
         self.switch_btn.setToolTip('Przełącz na tryb manualny.')
@@ -46,6 +47,21 @@ class AutoWindow(QWidget):
         self.label_logs.setAlignment(Qt.AlignTop)
         self.label_logs.setStyleSheet("QLabel {background-color: lightgrey;}")
         self.label_logs.setGeometry(600, 0, 200, 410)
+
+        self.timer = QTimer()
+        self.timer.setInterval(5000)
+        self.timer.timeout.connect(self.auto_loop)
+        self.timer.start()
+
+    def switch_auto(self):
+        self.auto_enable = not self.auto_enable
+
+    def auto_loop(self):
+        if not self.auto_enable:
+            return
+
+        # move servos
+        self.serial_write()
 
     def serial_write(self):
         self.arduino.write([np.uint8(200), np.uint8(self.angle[0]), np.uint8(self.angle[1]), np.uint8(self.angle[2]),

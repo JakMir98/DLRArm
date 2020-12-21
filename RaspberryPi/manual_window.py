@@ -1,7 +1,30 @@
-from PyQt5.QtCore import pyqtSignal, Qt, QTimer
-from PyQt5.QtWidgets import QWidget, QLabel, QLineEdit, QPushButton, QSlider
+from PyQt5.QtCore import pyqtSlot, pyqtSignal, Qt, QTimer
+from PyQt5.QtWidgets import QWidget, QLabel, QLineEdit, QPushButton, QSlider, QDialog, QVBoxLayout
 import numpy as np
 import serial
+from time import sleep
+from arduino import *
+
+
+class InformationDialog(QDialog):
+    def __init__(self, *args, **kwargs):
+        super(InformationDialog, self).__init__(*args, **kwargs)
+
+        self.setWindowTitle("Information window")
+        # here goes text to information window
+        self.text = QLabel("TEST", self)
+
+        self.button = QPushButton('OK', self)
+        self.button.clicked.connect(self.close)
+
+        self.layout = QVBoxLayout()
+        self.layout.addWidget(self.text)
+        self.layout.addWidget(self.button)
+        self.setLayout(self.layout)
+
+    @pyqtSlot()
+    def close(self):
+        self.accept()
 
 
 class ManualWindow(QWidget):
@@ -16,7 +39,6 @@ class ManualWindow(QWidget):
         self.width = 800
         self.height = 410
         self.angle = [90, 90, 90, 90, 90, 90]
-        self.arduino = serial.Serial("COM6", 9600)
         self.init_ui()
 
     def init_ui(self):
@@ -36,7 +58,7 @@ class ManualWindow(QWidget):
         self.instructions_btn = QPushButton('instrukcja', self)
         self.instructions_btn.setToolTip('Wyświetl instrukcję obsługi ramienia.')
         self.instructions_btn.setGeometry(595, 205, 200, 100)
-        self.instructions_btn.clicked.connect(self.switch)
+        self.instructions_btn.clicked.connect(self.instructions)
 
         self.settings_btn = QPushButton('ustawienia', self)
         self.settings_btn.setToolTip('Zmień ustawienia programu.')
@@ -126,6 +148,7 @@ class ManualWindow(QWidget):
         self.timer.timeout.connect(self.serial_write)
         self.timer.start()
 
+    @pyqtSlot()
     def pwm1(self, value):
         self.text_pwm1.setText(str(value))
         self.angle[0] = value
@@ -150,8 +173,14 @@ class ManualWindow(QWidget):
         self.text_pwm6.setText(str(value))
         self.angle[5] = value
 
+    def instructions(self):
+        dlg = InformationDialog(self)
+        dlg.text.setText(
+            "Here goes our long text\n of course it can be multiline")
+        dlg.exec_()
+
     def serial_write(self):
-        self.arduino.write([np.uint8(200), np.uint8(self.angle[0]), np.uint8(self.angle[1]), np.uint8(self.angle[2]),
+        arduino.write([np.uint8(200), np.uint8(self.angle[0]), np.uint8(self.angle[1]), np.uint8(self.angle[2]),
                                            np.uint8(self.angle[3]), np.uint8(self.angle[4]), np.uint8(self.angle[5])])
         print([np.uint8(200), np.uint8(self.angle[0]), np.uint8(self.angle[1]), np.uint8(self.angle[2]),
                                            np.uint8(self.angle[3]), np.uint8(self.angle[4]), np.uint8(self.angle[5])])
@@ -159,5 +188,4 @@ class ManualWindow(QWidget):
     def switch(self):
         self.switch_window.emit()
         self.close()
-
 

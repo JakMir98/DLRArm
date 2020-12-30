@@ -1,6 +1,6 @@
 from PyQt5.QtCore import pyqtSignal, Qt, QTimer
-from PyQt5.QtGui import QPixmap
-from PyQt5.QtWidgets import QWidget, QLabel, QPushButton
+from PyQt5.QtGui import QPixmap, QImage
+from PyQt5.QtWidgets import QWidget
 from arduino import *
 import numpy as np
 from imutils.object_detection import non_max_suppression
@@ -66,14 +66,14 @@ def decode_predictions(scores, geometry):
     return (rects, confidences)
 
 
-def copypasta(camera):
+def getFrame(camera):
     return_value, image = camera.read()
     orig = image.copy()
     (origH, origW) = image.shape[:2]
 
     # set the new width and height and then determine the ratio in change
     # for both the width and height
-    (newW, newH) = (768, 1024)  ## WIDTH HEIGHT
+    (newW, newH) = (640, 480)  ## WIDTH HEIGHT
     rW = origW / float(newW)
     rH = origH / float(newH)
 
@@ -148,27 +148,31 @@ def copypasta(camera):
     # loop over the results
     for ((startX, startY, endX, endY), text) in results:
         # display the text OCR'd by Tesseract
-        print("OCR TEXT")
-        print("========")
-        print("{}\n".format(text))
-        x = (endX + startX) / 2
-        y = (endY + startY) / 2
-        print((endX + startX) / 2)
-        print((endY + startY) / 2)
+        #print("OCR TEXT")
+        #print("========")
+        #print("{}\n".format(text))
+        # x = (endX + startX) / 2
+        # y = (endY + startY) / 2
+        #print((endX + startX) / 2)
+        #print((endY + startY) / 2)
 
         # strip out non-ASCII text so we can draw the text on the image
         # using OpenCV, then draw the text and a bounding box surrounding
         # the text region of the input image
-        text = "".join([c if ord(c) < 128 else "" for c in text]).strip() + " x: " + str(x) + " y: " + str(y)
-        output = orig.copy()
-        cv2.rectangle(output, (startX, startY), (endX, endY),
-                      (0, 0, 255), 2)
-        cv2.putText(output, text, (startX, startY - 20),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 0, 255), 3)
+        text = "".join([c if ord(c) < 128 else "" for c in text]).strip()# + " x: " + str(x) + " y: " + str(y)
+        #output = orig.copy()
+        cv2.rectangle(orig, (startX, startY), (endX, endY), (0, 0, 255), 2)
+        cv2.putText(orig, text, (startX, startY - 20), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 0, 255), 3)
 
         # show the output image
-        cv2.imshow("Text Detection", output)
-        cv2.waitKey(0)
+        #cv2.imshow("Text Detection", output)
+        #cv2.waitKey(0)
+
+    height, width, channel = orig.shape
+    bytesPerLine = 3 * width
+    qImg = QImage(orig.data, width, height, bytesPerLine, QImage.Format_RGB888)
+    #       qpixmap = QPixmap(qimg)
+    return qImg, results
 
 
 class AutoWindow(QWidget):
@@ -185,7 +189,11 @@ class AutoWindow(QWidget):
         self.angle = [90, 90, 90, 90, 90, 90]
         self.auto_enable = False
         self.camera = cv2.VideoCapture(0)
-        copypasta(self.camera)
+        self.logs = "data:"
+        self.frame, self.results = getFrame(self.camera)
+        self.sto_pos, self.lat_pos, self.agh_pos, self.rok_pos = [None, None], [None, None], [None, None], [None, None]
+        # positions not detected
+
         self.init_ui()
 
     def init_ui(self):
@@ -195,7 +203,7 @@ class AutoWindow(QWidget):
         self.picture = QLabel(self)
         self.picture.setGeometry(0, 0, 640, 300)
         self.picture.setScaledContents(True)
-        self.picture.setPixmap(QPixmap("a.jpeg"))
+        self.picture.setPixmap(QPixmap(self.frame))
 
         self.start_btn = QPushButton('ułóż zdanie', self)
         self.start_btn.setToolTip('Rozpocznij układanie słowa.')
@@ -210,21 +218,17 @@ class AutoWindow(QWidget):
         self.instructions_btn = QPushButton('instrukcja', self)
         self.instructions_btn.setToolTip('Wyświetl instrukcję obsługi ramienia.')
         self.instructions_btn.setGeometry(302, 305, 145, 100)
-        self.instructions_btn.clicked.connect(self.switch)
-
-        self.settings_btn = QPushButton('ustawienia', self)
-        self.settings_btn.setToolTip('Zmień ustawienia programu.')
-        self.settings_btn.setGeometry(451, 305, 145, 100)
-        self.settings_btn.clicked.connect(self.switch)
+        self.instructions_btn.clicked.connect(self.instructions)
 
         self.label_logs = QLabel(self)
-        self.label_logs.setText('logs')
+        self.label_logs.setWordWrap(True)
+        self.label_logs.setText(self.logs)
         self.label_logs.setAlignment(Qt.AlignTop)
         self.label_logs.setStyleSheet("QLabel {background-color: lightgrey;}")
-        self.label_logs.setGeometry(600, 0, 200, 410)
+        self.label_logs.setGeometry(642, 0, 158, 410)
 
         self.timer = QTimer()
-        self.timer.setInterval(5000)
+        self.timer.setInterval(5000)  # how often to take photo
         self.timer.timeout.connect(self.auto_loop)
         self.timer.start()
 
@@ -232,16 +236,44 @@ class AutoWindow(QWidget):
         self.auto_enable = not self.auto_enable
 
     def auto_loop(self):
-        if not self.auto_enable:
-            return
 
-        # move servos
-        self.serial_write()
+        self.frame, self.results = getFrame(self.camera)
+        self.picture.setPixmap(QPixmap(self.frame))
+        for ((startX, startY, endX, endY), text) in self.results:
+            text = "".join([c if ord(c) < 128 else "" for c in text]).strip() # delete non-ASCII characters
+            x = (endX + startX) / 2
+            y = (endY + startY) / 2
+
+            if "to" in text.lower():
+                self.sto_pos = [x, y]
+            elif "at" in text.lower():
+                self.lat_pos = [x, y]
+            elif "g" in text.lower():
+                self.agh_pos = [x, y]
+            elif "0" in text.lower() or "2" in text.lower():
+                self.rok_pos = [x, y]
+
+        if self.auto_enable:
+            self.serial_write()
+
+        self.update_logs()
+
+    def update_logs(self):
+        self.logs = "data:\n\nSTO: " + str(self.sto_pos) + "\nLAT: " + str(self.lat_pos) + "\nAGH: " + str(self.agh_pos) + "\n2020: " + str(self.rok_pos) + "\nservos: " + str([np.uint8(200),
+                            np.uint8(self.angle[0]), np.uint8(self.angle[1]), np.uint8(self.angle[2]), np.uint8(self.angle[3]), np.uint8(self.angle[4]), np.uint8(self.angle[5])])
+        self.label_logs.setText(self.logs)
 
     def serial_write(self):
         arduino.write([np.uint8(200), np.uint8(self.angle[0]), np.uint8(self.angle[1]), np.uint8(self.angle[2]),
                                            np.uint8(self.angle[3]), np.uint8(self.angle[4]), np.uint8(self.angle[5])])
 
+    def instructions(self):
+        dlg = InformationDialog(self)
+        dlg.text.setText(
+            "Here goes our long text\n of course it can be multiline")
+        dlg.exec_()
+
     def switch(self):
+        self.timer.stop()
         self.switch_window.emit()
         self.close()

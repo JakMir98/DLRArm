@@ -1,4 +1,4 @@
-## Design Labolatory Robotic Arm project
+## Design Laboratory Robotic Arm project
 
 
 ## Table of contents
@@ -25,7 +25,7 @@ Project is created with:
 ## Used hardware:
 - Raspberry Pi 3B+
 - Arduino mini
-- Robotic Arm, 6 servos
+- Six-servo Robot Arm
 - Raspberry pi touch screen 5 inch
 
 

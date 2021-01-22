@@ -6,6 +6,7 @@ import numpy as np
 from imutils.object_detection import non_max_suppression
 import pytesseract
 import cv2
+from time import sleep
 
 
 def decode_predictions(scores, geometry):
@@ -189,6 +190,7 @@ class AutoWindow(QWidget):
         self.angle = [90, 90, 90, 90, 90, 90]
         self.auto_enable = False
         self.camera = cv2.VideoCapture(0)
+        self.word_sel = "STO"
         self.logs = "data:"
         self.frame, self.results = getFrame(self.camera)
         self.sto_pos, self.lat_pos, self.agh_pos, self.rok_pos = [None, None], [None, None], [None, None], [None, None]
@@ -233,7 +235,46 @@ class AutoWindow(QWidget):
         self.timer.start()
 
     def switch_auto(self):
-        self.auto_enable = not self.auto_enable
+        for word in ["STO", "LAT", "AGH", "2020"]:
+            self.move_word(word)
+
+    def move_word(self, word):
+        if word == "STO":
+            current_pos = self.sto_pos
+            place_pos = [160, 443]
+        elif word == "LAT":
+            current_pos = self.lat_pos
+            place_pos = [270, 443]
+        elif word == "AGH":
+            current_pos = self.agh_pos
+            place_pos = [370, 443]
+        else:
+            current_pos = self.rok_pos
+            place_pos = [490, 443]
+
+        # release
+        self.angle[5] = 120
+        sleep(0.5)
+
+        # move to current_pos
+        self.move_servo(current_pos)
+        sleep(0.5)
+
+        # grab
+        self.angle[5] = 90
+        sleep(0.5)
+
+        # move to place_pos
+        self.move_servo(place_pos)
+        sleep(0.5)
+
+    def move_servo(self, pos):     # 355, 258 - 2020 in the middle
+        # TODO map pos to servo angles
+        pos[0] -= 150   # set centre at arm base
+        pos[1] += 250
+        self.angle[0] = np.arctan(pos[1]/pos[0])*57.2958 + 30
+
+        self.serial_write()
 
     def auto_loop(self):
 
@@ -253,8 +294,8 @@ class AutoWindow(QWidget):
             elif "0" in text.lower() or "2" in text.lower():
                 self.rok_pos = [x, y]
 
-        if self.auto_enable:
-            self.serial_write()
+        #if self.auto_enable:
+        #    self.serial_write()
 
         self.update_logs()
 

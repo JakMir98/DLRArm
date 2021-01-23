@@ -20,6 +20,8 @@ Project is created with:
 * Arduino IDE
 * Tesseract
 * OpenCV
+* Python 3.6+
+* C++
 
 
 ## Used hardware:

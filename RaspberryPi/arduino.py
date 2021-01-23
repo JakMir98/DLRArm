@@ -4,7 +4,7 @@ from PyQt5.QtCore import pyqtSlot
 from PyQt5.QtWidgets import QLabel, QPushButton, QDialog, QVBoxLayout
 
 global arduino
-arduino = serial.Serial("COM6", 9600)
+arduino = serial.Serial("COM13", 9600)  # "/dev/ttyXX" for Linux
 pytesseract.pytesseract.tesseract_cmd = r'C:\\Users\\pawel\\Desktop\\tess\\tesseract.exe'
 
 

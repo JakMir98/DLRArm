@@ -7,6 +7,7 @@ from imutils.object_detection import non_max_suppression
 import pytesseract
 import cv2
 from time import sleep
+from math import sqrt, fabs
 
 
 def decode_predictions(scores, geometry):
@@ -187,7 +188,7 @@ class AutoWindow(QWidget):
         self.top = 500  # 70
         self.width = 800
         self.height = 410
-        self.angle = [90, 90, 90, 90, 90, 90]
+        self.angle = [90, 90, 90, 90, 7, 90]
         self.auto_enable = False
         self.camera = cv2.VideoCapture(0)
         self.word_sel = "STO"
@@ -237,6 +238,7 @@ class AutoWindow(QWidget):
     def switch_auto(self):
         for word in ["STO", "LAT", "AGH", "2020"]:
             self.move_word(word)
+            sleep(10)
 
     def move_word(self, word):
         if word == "STO":
@@ -258,7 +260,7 @@ class AutoWindow(QWidget):
 
         # move to current_pos
         self.move_servo(current_pos)
-        sleep(0.5)
+        sleep(10)
 
         # grab
         self.angle[5] = 90
@@ -266,22 +268,46 @@ class AutoWindow(QWidget):
 
         # move to place_pos
         self.move_servo(place_pos)
-        sleep(0.5)
+        sleep(10)
 
     def move_servo(self, pos):     # 355, 258 - 2020 in the middle
         # TODO map pos to servo angles
         pos[0] -= 150   # set centre at arm base
         pos[1] += 250
-        self.angle[0] = np.arctan(pos[1]/pos[0])*57.2958 + 30
-
+        self.angle[0] = int(np.arctan(pos[1] / pos[0]) * 57.2958 + 30)
         self.serial_write()
+        sleep(2)
+
+        pixel_dist = sqrt(40000 + pos[0]**2 + pos[1]**2)  # distance from block to arm servo2
+        alpha = int(np.arccos(pixel_dist/720) * 57.2958)  # calculate target angle
+        diff_angle1 = (180 - alpha) - self.angle[1] + 10  # set angle + offset
+        diff_angle3 = (180 - (2 * alpha)) - self.angle[2] - 100  # set angle + offset
+
+        if fabs(diff_angle1) > fabs(diff_angle3):
+            iterator = fabs(diff_angle1)
+        else:
+            iterator = fabs(diff_angle3)
+
+        for i in range(int(iterator)):  # smooth out angle change for lower power consumption
+            if i <= fabs(diff_angle1):
+                if diff_angle1 > 0:
+                    self.angle[1] += 1
+                else:
+                    self.angle[1] -= 1
+            if i <= fabs(diff_angle3):
+                if diff_angle3 > 0:
+                    self.angle[3] += 1
+                else:
+                    self.angle[3] -= 1
+            self.serial_write()
+            sleep(0.5)
 
     def auto_loop(self):
 
         self.frame, self.results = getFrame(self.camera)
         self.picture.setPixmap(QPixmap(self.frame))
         for ((startX, startY, endX, endY), text) in self.results:
-            text = "".join([c if ord(c) < 128 else "" for c in text]).strip() # delete non-ASCII characters
+            text = "".join([c if ord(c) < 128 else "" for c in text]).strip()  # delete non-ASCII characters
             x = (endX + startX) / 2
             y = (endY + startY) / 2
 

@@ -193,6 +193,8 @@ class AutoWindow(QWidget):
         self.camera = cv2.VideoCapture(0)
         self.word_sel = "STO"
         self.logs = "data:"
+        self.word = None
+        self.action = None
         self.frame, self.results = getFrame(self.camera)
         self.sto_pos, self.lat_pos, self.agh_pos, self.rok_pos = [None, None], [None, None], [None, None], [None, None]
         # positions not detected
@@ -237,8 +239,11 @@ class AutoWindow(QWidget):
 
     def switch_auto(self):
         for word in ["STO", "LAT", "AGH", "2020"]:
+            self.word = word
+            self.update_logs()
             self.move_word(word)
-            sleep(10)
+        self.word = "DONE"
+        self.update_logs()
 
     def move_word(self, word):
         if word == "STO":
@@ -259,46 +264,83 @@ class AutoWindow(QWidget):
         sleep(0.5)
 
         # move to current_pos
+        self.action = "grab word"
+        self.update_logs()
         self.move_servo(current_pos)
-        sleep(10)
+        sleep(0.5)
 
         # grab
         self.angle[5] = 90
         sleep(0.5)
 
         # move to place_pos
+        self.action = "place word"
+        self.update_logs()
         self.move_servo(place_pos)
-        sleep(10)
+        sleep(0.5)
 
     def move_servo(self, pos):     # 355, 258 - 2020 in the middle
         # TODO map pos to servo angles
         pos[0] -= 150   # set centre at arm base
         pos[1] += 250
-        self.angle[0] = int(np.arctan(pos[1] / pos[0]) * 57.2958 + 30)
-        self.serial_write()
-        sleep(2)
 
         pixel_dist = sqrt(40000 + pos[0]**2 + pos[1]**2)  # distance from block to arm servo2
-        alpha = int(np.arccos(pixel_dist/720) * 57.2958)  # calculate target angle
-        diff_angle1 = (180 - alpha) - self.angle[1] + 10  # set angle + offset
-        diff_angle3 = (180 - (2 * alpha)) - self.angle[2] - 100  # set angle + offset
-
-        if fabs(diff_angle1) > fabs(diff_angle3):
-            iterator = fabs(diff_angle1)
+        if pixel_dist <= 360:
+            temp1, temp2, temp3 = 96, 40, 11
+        elif pixel_dist <= 400:
+            temp1, temp2, temp3 = 107, 49, 17
+        elif pixel_dist <= 440:
+            temp1, temp2, temp3 = 116, 59, 21
+        elif pixel_dist <= 480:
+            temp1, temp2, temp3 = 125, 70, 21
+        elif pixel_dist <= 500:
+            temp1, temp2, temp3 = 129, 80, 22
+        elif pixel_dist <= 520:
+            temp1, temp2, temp3 = 130, 78, 25
+        elif pixel_dist <= 540:
+            temp1, temp2, temp3 = 138, 82, 31
+        elif pixel_dist <= 580:
+            temp1, temp2, temp3 = 141, 82, 39
+        elif pixel_dist <= 600:
+            temp1, temp2, temp3 = 148, 82, 49
+        elif pixel_dist <= 640:
+            temp1, temp2, temp3 = 146, 77, 58
+        elif pixel_dist <= 680:
+            temp1, temp2, temp3 = 162, 97, 57
         else:
-            iterator = fabs(diff_angle3)
+            temp1, temp2, temp3 = 180, 111, 70
+
+        # alpha = int(np.arccos(pixel_dist/720) * 57.2958)  # calculate target angle
+        diff_angle1 = temp1 - self.angle[1]
+        diff_angle2 = temp2 - self.angle[2]
+        diff_angle3 = temp3 - self.angle[3]
+        diff_angle0 = int(np.arctan(pos[1] / pos[0]) * 57.2958 + 13) - self.angle[0]  # 13 - offset
+
+        iterator = max(fabs(diff_angle1), fabs(diff_angle2), fabs(diff_angle3), fabs(diff_angle0))
 
         for i in range(int(iterator)):  # smooth out angle change for lower power consumption
+
+            if i <= fabs(diff_angle0):
+                if diff_angle1 > 0:
+                    self.angle[0] += 1
+                else:
+                    self.angle[0] -= 1
             if i <= fabs(diff_angle1):
                 if diff_angle1 > 0:
                     self.angle[1] += 1
                 else:
                     self.angle[1] -= 1
+            if i <= fabs(diff_angle2):
+                if diff_angle2 > 0:
+                    self.angle[2] += 1
+                else:
+                    self.angle[2] -= 1
             if i <= fabs(diff_angle3):
                 if diff_angle3 > 0:
                     self.angle[3] += 1
                 else:
                     self.angle[3] -= 1
+
             self.serial_write()
             sleep(0.5)
 
@@ -317,7 +359,7 @@ class AutoWindow(QWidget):
                 self.lat_pos = [x, y]
             elif "g" in text.lower():
                 self.agh_pos = [x, y]
-            elif "0" in text.lower() or "2" in text.lower():
+            elif "2" in text.lower():
                 self.rok_pos = [x, y]
 
         #if self.auto_enable:
@@ -327,7 +369,7 @@ class AutoWindow(QWidget):
 
     def update_logs(self):
         self.logs = "data:\n\nSTO: " + str(self.sto_pos) + "\nLAT: " + str(self.lat_pos) + "\nAGH: " + str(self.agh_pos) + "\n2020: " + str(self.rok_pos) + "\nservos: " + str([np.uint8(200),
-                            np.uint8(self.angle[0]), np.uint8(self.angle[1]), np.uint8(self.angle[2]), np.uint8(self.angle[3]), np.uint8(self.angle[4]), np.uint8(self.angle[5])])
+                            np.uint8(self.angle[0]), np.uint8(self.angle[1]), np.uint8(self.angle[2]), np.uint8(self.angle[3]), np.uint8(self.angle[4]), np.uint8(self.angle[5])]) + "\ncurrent word: " + str(self.word) + " \ncurrent action: " + str(self.action)
         self.label_logs.setText(self.logs)
 
     def serial_write(self):
